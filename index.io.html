@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parqueo inteligente · Proyecto con Arduino</title>
+<meta name="description" content="Una maqueta con Arduino que cuenta los autos que entran y salen de un parqueo y avisa cuántas plazas quedan libres. Mira cómo funciona y pruébala en el simulador.">
+<meta name="theme-color" content="#0f5c4d">
+<meta property="og:title" content="Parqueo inteligente · Proyecto con Arduino">
+<meta property="og:description" content="Un parqueo que cuenta sus propios lugares. Descubre cómo funciona y pruébalo en el simulador.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f5c4d'/%3E%3Ctext x='50' y='72' font-size='64' font-weight='800' font-family='Arial' text-anchor='middle' fill='white'%3EP%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f5faf8; --surface: #ffffff; --soft: #e6f2ee; --text: #14201c; --muted: #51625b;
+    --brand: #0f5c4d; --brand-2: #138468; --accent: #f5a524; --line: #d6e6e0;
+    --green: #1f9d63; --red: #d64545; --amber: #b9770e;
+    --shadow: 0 6px 24px rgba(15, 60, 48, .08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1310; --surface: #12201b; --soft: #173128; --text: #e7f1ed; --muted: #9db3aa;
+      --brand: #46d1a4; --brand-2: #46d1a4; --line: #24362f; --amber: #f5a524;
+      --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px; }
+  section { padding: 56px 0 8px; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+  h2 { font-size: clamp(1.6rem, 5.5vw, 2.1rem); margin-bottom: 10px; }
+  h3 { font-size: 1.12rem; margin-bottom: 6px; }
+  p { margin: 0 0 14px; }
+  .eyebrow { display: inline-block; font-size: .78rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-2); margin-bottom: 10px; }
+  .lead { font-size: 1.12rem; color: var(--muted); max-width: 62ch; }
+  a { color: var(--brand-2); }
+
+  /* barra superior */
+  .top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .top .wrap { display: flex; align-items: center; gap: 14px; height: 54px; }
+  .logo { flex: none; display: flex; align-items: center; gap: 8px; font-weight: 800; color: var(--brand); text-decoration: none; }
+  .logo i { width: 28px; height: 28px; border-radius: 8px; background: var(--brand); color: #fff; font-style: normal; display: grid; place-items: center; font-size: 16px; }
+  @media (prefers-color-scheme: dark) { .logo i { color: #06201a; } }
+  nav { position: relative; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; scroll-behavior: auto; }
+  nav::-webkit-scrollbar { display: none; }
+  nav a { flex: none; padding: 6px 12px; border-radius: 999px; font-size: .9rem; font-weight: 600; color: var(--muted); text-decoration: none; }
+  nav a.on { background: var(--soft); color: var(--brand); }
+
+  /* portada */
+  .hero { padding: 40px 0 8px; }
+  .hero h1 { font-size: clamp(2.2rem, 9vw, 3.6rem); font-weight: 850; color: var(--brand); }
+  .hero .lead { margin-top: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 24px; }
+  .chip { background: var(--soft); color: var(--brand); border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: .92rem; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 14px; font-weight: 700; font-size: 1rem; text-decoration: none; border: 2px solid var(--brand); transition: transform .15s; cursor: pointer; font-family: inherit; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--brand); color: #fff; }
+  @media (prefers-color-scheme: dark) { .btn.primary { color: #06201a; } }
+  .btn.ghost { background: transparent; color: var(--brand); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+  .hero-art { position: relative; height: 130px; margin-top: 34px; border-radius: 20px; background: #1d1d22; overflow: hidden; border: 6px solid #e9edf0; }
+  .ha-line { position: absolute; left: 0; right: 0; top: 50%; height: 4px; background: repeating-linear-gradient(90deg, #fff 0 28px, transparent 28px 52px); opacity: .5; }
+  .ha-car { position: absolute; top: 40px; font-size: 44px; line-height: 1; animation: drive 9s ease-in-out infinite; }
+  .ha-post { position: absolute; left: 62%; top: 12px; bottom: 12px; width: 10px; }
+  .ha-arm { position: absolute; left: 0; top: 0; width: 8px; height: 106px; border-radius: 4px; transform-origin: 50% 0; background: repeating-linear-gradient(180deg, #ffd400 0 12px, #111 12px 24px); animation: arm 9s ease-in-out infinite; }
+  .ha-base { position: absolute; left: -8px; top: -8px; width: 26px; height: 18px; border-radius: 6px; background: #3b444c; }
+  @keyframes drive { 0% { left: 104%; } 28% { left: 74%; } 44% { left: 74%; } 78% { left: -16%; } 100% { left: -16%; } }
+  @keyframes arm { 0%, 30% { transform: rotate(0deg); } 38%, 76% { transform: rotate(-88deg); } 84%, 100% { transform: rotate(0deg); } }
+  @media (prefers-reduced-motion: reduce) { .ha-car, .ha-arm { animation: none; } .ha-car { left: 74%; } }
+
+  /* tarjetas */
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 22px 0; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); }
+  .card .ico { font-size: 2rem; line-height: 1; margin-bottom: 10px; display: block; }
+  .card p { color: var(--muted); margin: 0; font-size: .98rem; }
+  .callout { background: var(--brand); color: #fff; border-radius: 20px; padding: 26px 24px; margin: 24px 0; font-size: clamp(1.25rem, 4.6vw, 1.7rem); font-weight: 750; line-height: 1.35; }
+  @media (prefers-color-scheme: dark) { .callout { color: #06201a; } }
+  .callout small { display: block; margin-top: 10px; font-size: .95rem; font-weight: 500; opacity: .9; }
+  .note { background: var(--soft); border-left: 5px solid var(--brand-2); border-radius: 12px; padding: 14px 18px; margin: 18px 0; }
+  .note p { margin: 0; }
+
+  /* el orden cuenta la historia */
+  .dir { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 22px 0; }
+  .dir .row { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; font-weight: 700; }
+  .flow span.s { background: var(--soft); border-radius: 10px; padding: 6px 12px; font-size: .92rem; }
+  .flow span.ar { color: var(--brand-2); font-size: 1.3rem; }
+  .flow b.res { margin-left: auto; padding: 6px 14px; border-radius: 999px; color: #fff; font-size: .9rem; }
+  .res.in { background: var(--green); } .res.out { background: #3a7bd5; }
+
+  /* pasos */
+  .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin: 22px 0; }
+  .steps .col { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); }
+  .steps h3 { font-size: 1.2rem; margin-bottom: 14px; }
+  ol.st { list-style: none; counter-reset: s; margin: 0; padding: 0; }
+  ol.st li { counter-increment: s; position: relative; padding: 0 0 14px 46px; color: var(--muted); font-size: .98rem; }
+  ol.st li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 800; display: grid; place-items: center; }
+  @media (prefers-color-scheme: dark) { ol.st li::before { color: #06201a; } }
+  ol.st li b { color: var(--text); }
+  ol.st li:last-child { padding-bottom: 0; }
+
+  /* simulador */
+  .sim { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 14px; box-shadow: var(--shadow); margin-top: 22px; }
+  #sim { display: block; width: 100%; height: auto; border-radius: 14px; }
+  .slotbg { transition: fill .4s; fill: rgba(255, 255, 255, .04); }
+  .slotbg.free { fill: rgba(46, 204, 113, .16); }
+  .slotbg.busy { fill: rgba(255, 77, 79, .18); }
+  .slotlbl { fill: #fff; opacity: .6; font: 700 11px system-ui, sans-serif; }
+  .beam { stroke: #ff4d4f; stroke-width: 2; stroke-dasharray: 3 6; opacity: .22; transition: opacity .15s; }
+  .beam.on { opacity: 1; stroke-width: 3; animation: dash .4s linear infinite; filter: drop-shadow(0 0 4px #ff4d4f); }
+  @keyframes dash { to { stroke-dashoffset: -9; } }
+  .sled { fill: #28402f; transition: fill .15s; }
+  .sled.on { fill: #ff4d4f; filter: drop-shadow(0 0 4px #ff4d4f); }
+  .slabel { fill: #b9c7d3; font: 700 12px system-ui, sans-serif; letter-spacing: .6px; }
+  #arm { transform: translate(396px, 126px) rotate(90deg); transition: transform .7s cubic-bezier(.4, 0, .2, 1); }
+  #arm.open { transform: translate(396px, 126px) rotate(180deg); }
+  .signt { fill: #7f93a5; font: 700 11px system-ui, sans-serif; letter-spacing: 2px; }
+  .signn { font: 800 52px ui-monospace, Consolas, monospace; transform-box: fill-box; transform-origin: center; }
+  .signn.free { fill: #2ecc71; filter: drop-shadow(0 0 6px rgba(46, 204, 113, .7)); }
+  .signn.full { fill: #ff4d4f; font-size: 28px; filter: drop-shadow(0 0 6px rgba(255, 77, 79, .7)); }
+  .signn.bump { animation: bump .45s ease-out; }
+  @keyframes bump { 0% { transform: scale(1.3); } 100% { transform: scale(1); } }
+  .lamp { fill: #2a2f35; transition: fill .2s; }
+  .lamp.r.on { fill: #ff4d4f; filter: drop-shadow(0 0 6px #ff4d4f); }
+  .lamp.g.on { fill: #2ecc71; filter: drop-shadow(0 0 6px #2ecc71); }
+  .car { transition: opacity .3s; }
+
+  .caption { margin: 12px 2px 0; min-height: 118px; background: var(--soft); border-radius: 14px; padding: 14px 16px; }
+  .caption .pill { display: inline-block; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; background: var(--brand); color: #fff; border-radius: 999px; padding: 2px 10px; margin-bottom: 6px; }
+  @media (prefers-color-scheme: dark) { .caption .pill { color: #06201a; } }
+  .caption .pill:empty { display: none; }
+  .caption p { margin: 0; font-size: 1.02rem; }
+  .status { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 12px 2px 4px; font-size: .8rem; }
+  .status span { background: var(--soft); border-radius: 999px; padding: 5px 12px; color: var(--muted); font-weight: 600; text-align: center; min-width: 0; }
+  .status b { color: var(--text); }
+  .simbtns { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin: 14px 2px 4px; }
+  .simbtns .btn { justify-content: center; padding: 12px 14px; font-size: .96rem; }
+
+  /* piezas */
+  .part { display: flex; gap: 14px; align-items: flex-start; }
+  .part .ico { margin: 0; font-size: 2.2rem; }
+  .part h3 span { color: var(--brand-2); font-weight: 600; font-size: .95rem; }
+  .compare { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 22px 0; }
+  .compare ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: .98rem; }
+  .compare li { margin-bottom: 6px; }
+
+  /* preguntas y glosario */
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0 18px; margin-bottom: 10px; }
+  summary { cursor: pointer; font-weight: 700; padding: 15px 0; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-size: 1.4rem; line-height: 1; color: var(--brand-2); }
+  details[open] summary::after { content: "–"; }
+  details p { color: var(--muted); }
+  dl { margin: 18px 0 0; display: grid; gap: 10px; }
+  dl div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; }
+  dt { font-weight: 800; color: var(--brand); }
+  dd { margin: 2px 0 0; color: var(--muted); font-size: .98rem; }
+
+  footer { margin-top: 64px; padding: 34px 0 48px; background: var(--brand); color: #e9f6f1; }
+  @media (prefers-color-scheme: dark) { footer { background: #0e2019; } }
+  footer h2 { color: #fff; font-size: 1.3rem; }
+  footer ul { list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 4px; }
+  footer small { display: block; opacity: .85; margin-top: 12px; }
+  footer a { color: #fff; }
+  .toplink { display: inline-block; margin-top: 8px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#inicio"><i>P</i><span>Parqueo</span></a>
+    <nav id="nav" aria-label="Secciones">
+      <a href="#problema">El problema</a>
+      <a href="#solucion">La solución</a>
+      <a href="#como">Cómo funciona</a>
+      <a href="#simulador">Simulador</a>
+      <a href="#piezas">Las piezas</a>
+      <a href="#aprendimos">Lo que aprendimos</a>
+      <a href="#preguntas">Preguntas</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- PORTADA -->
+  <div class="hero" id="inicio">
+    <div class="wrap">
+      <span class="eyebrow">Proyecto escolar · Arduino</span>
+      <h1>Un parqueo que cuenta sus propios lugares</h1>
+      <p class="lead">Esta maqueta sabe cuántos autos entran, cuántos salen y <b>cuántas plazas quedan libres</b>. Sin nadie contando a mano y sin adivinar.</p>
+      <div class="chips">
+        <span class="chip">🅿️ 5 plazas</span><span class="chip">👀 2 sensores</span><span class="chip">🧠 Arduino UNO</span>
+      </div>
+      <div class="btns">
+        <a class="btn primary" href="#como">Ver cómo funciona</a>
+        <a class="btn ghost" href="#simulador">Probar el simulador</a>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="ha-line"></div>
+        <div class="ha-post"><div class="ha-base"></div><div class="ha-arm"></div></div>
+        <div class="ha-car">🚗</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROBLEMA -->
+  <section id="problema">
+    <div class="wrap">
+      <span class="eyebrow">1 · El problema</span>
+      <h2>¿Te pasó alguna vez?</h2>
+      <p class="lead">Llegar a un parqueo y no saber si hay lugar es mucho más común de lo que parece.</p>
+      <div class="cards">
+        <div class="card"><span class="ico">🔄</span><h3>Dar vueltas sin saber</h3><p>Entras, recorres todo el lugar y recién ahí descubres que estaba lleno.</p></div>
+        <div class="card"><span class="ico">🚧</span><h3>Filas y bloqueos</h3><p>Si el parqueo está lleno y nadie avisa, los autos se acumulan en la entrada y estorban a todos.</p></div>
+        <div class="card"><span class="ico">✍️</span><h3>Contar a mano</h3><p>Cuando una persona anota las entradas y las salidas, basta una distracción para que el número deje de ser correcto.</p></div>
+        <div class="card"><span class="ico">⏱️</span><h3>Tiempo y paciencia perdidos</h3><p>Cada minuto buscando lugar es tiempo, combustible y estrés que se podrían evitar.</p></div>
+      </div>
+      <div class="note"><p><b>El problema de fondo:</b> nadie tiene la información correcta en el momento justo. Ni el conductor, ni el encargado.</p></div>
+    </div>
+  </section>
+
+  <!-- SOLUCION -->
+  <section id="solucion">
+    <div class="wrap">
+      <span class="eyebrow">2 · La solución</span>
+      <h2>La idea, en una frase</h2>
+      <div class="callout">Que el propio parqueo cuente los autos y avise cuántos lugares quedan.
+        <small>Así la información siempre está al día, sin depender de que alguien se acuerde de anotarla.</small></div>
+      <div class="cards">
+        <div class="card"><span class="ico">⚡</span><h3>Informa al instante</h3><p>Las plazas libres se actualizan apenas entra o sale un auto.</p></div>
+        <div class="card"><span class="ico">🎯</span><h3>No se equivoca al contar</h3><p>Una máquina no se distrae: aplica siempre las mismas reglas, una y otra vez.</p></div>
+        <div class="card"><span class="ico">🚦</span><h3>Ordena el acceso</h3><p>Semáforo verde si hay lugar y rojo si está lleno. Nadie entra para nada.</p></div>
+        <div class="card"><span class="ico">💡</span><h3>Simple y económica</h3><p>Con una placa Arduino, dos sensores, un motor pequeño y dos luces ya funciona.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA -->
+  <section id="como">
+    <div class="wrap">
+      <span class="eyebrow">3 · Cómo funciona</span>
+      <h2>Dos "ojos" que se ponen de acuerdo</h2>
+      <p class="lead">El truco está en usar <b>dos sensores infrarrojos</b>: uno <b>antes</b> de la barrera (afuera) y otro <b>después</b> (adentro). Funcionan como los ojos del sistema.</p>
+
+      <h3 style="margin-top:26px">El orden cuenta la historia</h3>
+      <div class="dir">
+        <div class="row">
+          <div class="flow"><span class="s">👀 Afuera</span><span class="ar">→</span><span class="s">👀 Adentro</span><b class="res in">ENTRÓ</b></div>
+          <p style="margin:0;color:var(--muted)">Si primero ve el auto el sensor de afuera y después el de adentro, el auto <b>entró</b>.</p>
+        </div>
+        <div class="row">
+          <div class="flow"><span class="s">👀 Adentro</span><span class="ar">→</span><span class="s">👀 Afuera</span><b class="res out">SALIÓ</b></div>
+          <p style="margin:0;color:var(--muted)">Si primero lo ve el de adentro y después el de afuera, el auto <b>salió</b>.</p>
+        </div>
+      </div>
+
+      <div class="note"><p><b>La doble confirmación:</b> cuando el primer sensor ve un auto, el Arduino abre la barrera, pero <b>todavía no cuenta nada</b>. Espera a que el segundo sensor confirme que el auto realmente cruzó. Solo entonces suma o resta una plaza.</p></div>
+      <div class="note"><p><b>¿Y si el auto se arrepiente?</b> Si en <b>5 segundos</b> no pasa, la barrera se cierra y el contador queda exactamente igual. Así no se cuentan autos que nunca entraron.</p></div>
+
+      <div class="steps">
+        <div class="col">
+          <h3>🚗 Cuando un auto ENTRA</h3>
+          <ol class="st">
+            <li>El sensor de <b>afuera</b> ve un auto y el Arduino revisa que <b>haya plazas libres</b>.</li>
+            <li>El semáforo queda en <b>verde</b> y la <b>barrera se levanta</b>.</li>
+            <li>El auto avanza y lo ve el sensor de <b>adentro</b>: <b>confirmado</b>.</li>
+            <li>Cuando termina de pasar, el Arduino <b>resta una plaza</b>.</li>
+            <li>La barrera <b>baja</b> y se actualiza la información de plazas libres.</li>
+          </ol>
+        </div>
+        <div class="col">
+          <h3>🅿️ Cuando un auto SALE</h3>
+          <ol class="st">
+            <li>El sensor de <b>adentro</b> ve un auto y el Arduino revisa que <b>haya autos dentro</b>.</li>
+            <li>El semáforo queda en <b>verde</b> y la <b>barrera se levanta</b>.</li>
+            <li>El auto avanza y lo ve el sensor de <b>afuera</b>: <b>confirmado</b>.</li>
+            <li>Cuando termina de pasar, el Arduino <b>suma una plaza</b>.</li>
+            <li>La barrera <b>baja</b> y se actualiza la información de plazas libres.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIMULADOR -->
+  <section id="simulador">
+    <div class="wrap">
+      <span class="eyebrow">4 · Pruébalo tú</span>
+      <h2>Simulador de la maqueta</h2>
+      <p class="lead">Toca un botón y mira, paso a paso, lo que hace el sistema. Es una versión animada de la maqueta real.</p>
+
+      <div class="sim">
+        <svg id="sim" viewBox="0 0 480 392" role="img" aria-label="Maqueta animada del parqueo con cinco plazas, una barrera, dos sensores y un semáforo">
+          <defs>
+            <pattern id="stripe" width="16" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#ffd400"/><rect x="8" width="8" height="8" fill="#111"/></pattern>
+            <linearGradient id="hl" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          </defs>
+          <rect x="2" y="2" width="476" height="388" rx="14" fill="#e9edf0"/>
+          <rect x="10" y="10" width="460" height="372" rx="8" fill="#1d1d22"/>
+          <line x1="10" x2="470" y1="140" y2="140" stroke="#e8e8e8" stroke-width="2.5" opacity=".7"/>
+          <line x1="10" x2="470" y1="330" y2="330" stroke="#e8e8e8" stroke-width="2.5" opacity=".7"/>
+          <line x1="10" x2="470" y1="235" y2="235" stroke="#e8e8e8" stroke-width="2.5" stroke-dasharray="26 18" opacity=".55"/>
+          <text x="22" y="190" fill="#fff" opacity=".28" font-size="13" font-weight="700" font-family="system-ui">SALIDA ▶</text>
+          <text x="22" y="298" fill="#fff" opacity=".28" font-size="13" font-weight="700" font-family="system-ui">◀ ENTRADA</text>
+          <g id="slots"></g>
+
+          <!-- cartel y semáforo -->
+          <rect x="316" y="18" width="114" height="86" rx="10" fill="#070a0e" stroke="#2c3946" stroke-width="2.5"/>
+          <text class="signt" x="373" y="38" text-anchor="middle">LIBRES</text>
+          <text id="signn" class="signn free" x="373" y="86" text-anchor="middle">3</text>
+          <rect x="440" y="18" width="26" height="62" rx="7" fill="#0b0f13" stroke="#39434d" stroke-width="2"/>
+          <circle id="lampR" class="lamp r" cx="453" cy="37" r="8.5"/>
+          <circle id="lampG" class="lamp g on" cx="453" cy="62" r="8.5"/>
+
+          <!-- haces infrarrojos -->
+          <line id="beamIn" class="beam" x1="354" y1="142" x2="354" y2="332"/>
+          <line id="beamOut" class="beam" x1="438" y1="142" x2="438" y2="332"/>
+          <g id="cars"></g>
+
+          <!-- sensores -->
+          <g transform="translate(354 334)"><rect x="-17" y="0" width="34" height="18" rx="4" fill="#1e5fd8" stroke="#0e2f73" stroke-width="2"/><circle cx="-6" cy="9" r="4" fill="#101418" stroke="#9aa7b4"/><circle cx="6" cy="9" r="4" fill="#101418" stroke="#9aa7b4"/><circle id="ledIn" class="sled" cx="13" cy="3" r="2.4"/></g>
+          <text class="slabel" x="354" y="370" text-anchor="middle">ADENTRO</text>
+          <g transform="translate(438 334)"><rect x="-17" y="0" width="34" height="18" rx="4" fill="#1e5fd8" stroke="#0e2f73" stroke-width="2"/><circle cx="-6" cy="9" r="4" fill="#101418" stroke="#9aa7b4"/><circle cx="6" cy="9" r="4" fill="#101418" stroke="#9aa7b4"/><circle id="ledOut" class="sled" cx="13" cy="3" r="2.4"/></g>
+          <text class="slabel" x="438" y="370" text-anchor="middle">AFUERA</text>
+
+          <!-- barrera -->
+          <rect x="382" y="112" width="28" height="28" rx="6" fill="#2a3138" stroke="#4a5560" stroke-width="2"/>
+          <g id="arm"><rect x="0" y="-4" width="200" height="8" rx="3" fill="url(#stripe)" stroke="#000" stroke-opacity=".4"/><circle cx="196" cy="0" r="2.6" fill="#ff4d4f"/></g>
+          <circle cx="396" cy="126" r="6" fill="#cfd6dd" stroke="#555" stroke-width="1.5"/>
+          <g id="tmp" style="visibility:hidden"></g>
+        </svg>
+
+        <div class="caption" aria-live="polite"><span class="pill" id="simStep"></span><p id="simText"></p></div>
+        <div class="status">
+          <span>Barrera: <b id="stBar">cerrada</b></span>
+          <span>Sensor afuera: <b id="stOut">libre</b></span>
+          <span>Sensor adentro: <b id="stIn">libre</b></span>
+          <span>Semáforo: <b id="stLamp">verde</b></span>
+        </div>
+        <div class="simbtns">
+          <button class="btn primary" id="bIn">🚗 Llega un auto</button>
+          <button class="btn primary" id="bOut">🅿️ Sale un auto</button>
+          <button class="btn ghost" id="bCancel">🙋 Un auto se arrepiente</button>
+          <button class="btn ghost" id="bReset">↺ Reiniciar</button>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:.92rem;margin-top:12px">Consejo: llena el parqueo con varios autos y mira qué pasa cuando llega uno más.</p>
+    </div>
+  </section>
+
+  <!-- PIEZAS -->
+  <section id="piezas">
+    <div class="wrap">
+      <span class="eyebrow">5 · Las piezas</span>
+      <h2>¿Qué hay dentro de la maqueta?</h2>
+      <p class="lead">Cada pieza tiene un trabajo sencillo. Juntas forman un sistema completo.</p>
+      <div class="cards">
+        <div class="card part"><span class="ico">🧠</span><div><h3>Arduino UNO <span>· el cerebro</span></h3><p>Recibe lo que ven los sensores, aplica las reglas del programa y decide qué hacer: abrir, cerrar, contar.</p></div></div>
+        <div class="card part"><span class="ico">👀</span><div><h3>Sensores infrarrojos <span>· los ojos</span></h3><p>Mandan luz invisible y detectan si rebota en algo. Así "ven" cuando hay un auto delante.</p></div></div>
+        <div class="card part"><span class="ico">💪</span><div><h3>Servomotor <span>· el brazo</span></h3><p>Un motor pequeño que gira a un ángulo exacto: 180° con la barrera cerrada y 90° abierta.</p></div></div>
+        <div class="card part"><span class="ico">🚦</span><div><h3>Semáforo de LEDs <span>· la señal</span></h3><p>Verde: hay lugar. Rojo: parqueo lleno. Se entiende de un vistazo, sin leer nada.</p></div></div>
+        <div class="card part"><span class="ico">🖥️</span><div><h3>Panel en la computadora <span>· la pantalla</span></h3><p>Muestra en tiempo real las plazas libres y el estado de todo, con una maqueta animada como la del simulador.</p></div></div>
+        <div class="card part"><span class="ico">🔋</span><div><h3>Capacitor <span>· la reserva</span></h3><p>Guarda un poco de energía para el servo, que gasta mucha cuando arranca y puede "bajar" la tensión.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- APRENDIMOS -->
+  <section id="aprendimos">
+    <div class="wrap">
+      <span class="eyebrow">6 · Lo que aprendimos</span>
+      <h2>No todo salió a la primera</h2>
+      <p class="lead">Este proyecto tuvo un problema real, y resolverlo fue parte del aprendizaje.</p>
+      <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+        <div class="card"><span class="ico">🔍</span><h3>El problema</h3><p>La pantalla LCD parpadeaba y se apagaba cada vez que el servo se movía. El motor consume tanta corriente al arrancar que "baja" la tensión que comparten.</p></div>
+        <div class="card"><span class="ico">🛠️</span><h3>Lo que probamos</h3><p>Pusimos un capacitor de 1000 µF, desconectamos el servo cuando está quieto y reiniciamos la pantalla después de cada movimiento.</p></div>
+        <div class="card"><span class="ico">✅</span><h3>La solución</h3><p>Como la pantalla seguía fallando, cambiamos de camino: <b>un panel en la computadora</b> que muestra todo en tiempo real, incluso con más información que la pantalla.</p></div>
+      </div>
+      <div class="callout" style="font-size:clamp(1.1rem,4vw,1.4rem)">Cuando algo falla no se abandona: se investiga, se prueba y se busca otro camino.</div>
+    </div>
+  </section>
+
+  <!-- REALIDAD -->
+  <section id="realidad">
+    <div class="wrap">
+      <span class="eyebrow">7 · De la maqueta a la vida real</span>
+      <h2>¿Qué tan parecido es a un parqueo de verdad?</h2>
+      <p class="lead">Es un prototipo educativo. Cumple la misma idea, pero a escala y con menos recursos.</p>
+      <div class="compare">
+        <div class="card"><h3>🧩 Nuestra maqueta</h3><ul><li>Cuenta los autos que cruzan la barrera.</li><li>Usa dos sensores infrarrojos.</li><li>Se prueba con autos de juguete.</li><li>No sabe en qué plaza está cada auto.</li></ul></div>
+        <div class="card"><h3>🏢 Parqueos reales</h3><ul><li>Lazos inductivos en el pavimento.</li><li>Cámaras que leen las placas.</li><li>Un sensor por cada plaza.</li><li>Boletos, tarjetas y controladores industriales.</li></ul></div>
+      </div>
+      <h3>Ideas para mejorarlo</h3>
+      <div class="cards">
+        <div class="card"><span class="ico">💾</span><p><b>Guardar el conteo</b> en la memoria EEPROM para no perderlo si se apaga.</p></div>
+        <div class="card"><span class="ico">📍</span><p><b>Un sensor por plaza</b> para saber exactamente cuáles están libres.</p></div>
+        <div class="card"><span class="ico">🔊</span><p><b>Una señal sonora</b> o un letrero que avise cuando está lleno.</p></div>
+        <div class="card"><span class="ico">📡</span><p><b>Sensores de mayor alcance</b>, como los ultrasónicos, menos sensibles a la luz.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREGUNTAS -->
+  <section id="preguntas">
+    <div class="wrap">
+      <span class="eyebrow">8 · Preguntas frecuentes</span>
+      <h2>Lo que quizás te estás preguntando</h2>
+      <details><summary>¿Por qué dos sensores y no uno?</summary><p>Con uno solo, un auto que se acerca y se retira hace que el sistema se equivoque, y además no se sabe si entra o sale. Con dos, el orden en que se activan indica la dirección y el segundo sensor confirma que el auto realmente cruzó.</p></details>
+      <details><summary>¿Qué pasa si el parqueo está lleno?</summary><p>El semáforo se pone en rojo, el panel muestra LLENO y la barrera no se abre para entrar. Los autos que están adentro sí pueden salir.</p></details>
+      <details><summary>¿Y si el sistema se apaga?</summary><p>El contador no se guarda en una memoria permanente, así que al reiniciar vuelve a 5 plazas libres. Una mejora sería guardarlo en la memoria EEPROM del Arduino.</p></details>
+      <details><summary>¿Sabe en qué plaza se estacionó cada auto?</summary><p>No. Cuenta los autos que cruzan la barrera, pero no controla cada plaza por separado. Para eso haría falta un sensor por plaza. En el panel y en el simulador, el auto "elige" una plaza solo como representación.</p></details>
+      <details><summary>¿Los sensores pueden fallar?</summary><p>Los sensores infrarrojos pueden confundirse con luz solar intensa o con superficies muy brillantes. Por eso se ajustan con un potenciómetro y se protegen de la luz directa.</p></details>
+      <details><summary>¿Por qué usaron Arduino?</summary><p>Porque es económico, fácil de programar y muy usado para aprender electrónica y control automático.</p></details>
+      <details><summary>¿Es un sistema comercial?</summary><p>No. Es un prototipo educativo para demostrar cómo se combinan sensores, actuadores y lógica de control. No reemplaza a los sistemas profesionales de gestión de estacionamientos.</p></details>
+
+      <h3 style="margin-top:36px">Glosario rápido</h3>
+      <dl>
+        <div><dt>Arduino</dt><dd>Una pequeña placa electrónica que se programa para leer sensores y controlar cosas.</dd></div>
+        <div><dt>Sensor infrarrojo</dt><dd>Un componente que envía luz que no vemos y detecta si algo la hace rebotar.</dd></div>
+        <div><dt>Servomotor</dt><dd>Un motor que gira hasta un ángulo exacto y se queda ahí. Mueve la barrera.</dd></div>
+        <div><dt>LED</dt><dd>Una lucecita electrónica. Usamos una verde y una roja para el semáforo.</dd></div>
+        <div><dt>Confirmación</dt><dd>Comprobar con un segundo dato que algo realmente ocurrió antes de darlo por hecho.</dd></div>
+        <div><dt>Tiempo real</dt><dd>Que la información se actualiza en el mismo instante en que ocurre.</dd></div>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <h2>Sobre el proyecto</h2>
+    <p style="margin:6px 0 0">Parqueo automatizado: control de acceso y conteo de plazas con Arduino.</p>
+    <ul id="creditos"></ul>
+    <div id="enlaces" class="btns" style="margin-top:12px"></div>
+    <small>Proyecto educativo en maqueta a escala. No sustituye a un sistema comercial de gestión de estacionamientos.</small>
+    <a class="toplink" href="#inicio">↑ Volver arriba</a>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+/* ====== DATOS DEL PROYECTO: completa lo que quieras mostrar (lo que dejes vacío no aparece) ====== */
+const PROYECTO = {
+  unidad: "",        // Nombre de la unidad educativa
+  estudiantes: "",   // Integrantes, separados por coma
+  docente: "",       // Nombre del docente
+  curso: "",         // Curso y paralelo
+  ciudad: "Bolivia", // Ciudad y país
+  gestion: "2026",
+  informeUrl: "",    // Enlace al informe (por ejemplo un PDF en el repositorio). Opcional
+  repoUrl: ""        // Enlace al repositorio de GitHub. Opcional
+};
+
+/* ---------- créditos ---------- */
+(function () {
+  const ul = document.getElementById("creditos");
+  [["Unidad educativa", PROYECTO.unidad], ["Estudiantes", PROYECTO.estudiantes], ["Docente", PROYECTO.docente],
+   ["Curso", PROYECTO.curso], ["Lugar", PROYECTO.ciudad], ["Gestión", PROYECTO.gestion]].forEach(([k, v]) => {
+    if (!v) return;
+    const li = document.createElement("li"); li.innerHTML = "<b></b> "; li.firstChild.textContent = k + ":";
+    li.appendChild(document.createTextNode(v)); ul.appendChild(li);
+  });
+  const box = document.getElementById("enlaces");
+  [["📄 Leer el informe completo", PROYECTO.informeUrl], ["💻 Ver el repositorio", PROYECTO.repoUrl]].forEach(([t, u]) => {
+    if (!u) return;
+    const a = document.createElement("a"); a.className = "btn ghost"; a.href = u; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = t; a.style.color = "#fff"; a.style.borderColor = "#fff"; box.appendChild(a);
+  });
+})();
+
+/* ---------- resaltar sección activa en el menú ---------- */
+(function () {
+  const nav = document.getElementById("nav");
+  const links = [...nav.querySelectorAll("a")];
+  const map = new Map(links.map(a => [a.getAttribute("href").slice(1), a]));
+  let tocando = false, t;
+
+  // Mientras la persona desliza o toca el menú, la página NO lo mueve por su cuenta.
+  const pausar = () => { tocando = true; clearTimeout(t); t = setTimeout(() => { tocando = false; }, 2500); };
+  ["pointerdown", "touchstart", "touchmove", "wheel", "mousedown"].forEach(ev => nav.addEventListener(ev, pausar, { passive: true }));
+
+  function mostrar(a) {
+    if (tocando) return;
+    const izq = a.offsetLeft, der = izq + a.offsetWidth;
+    if (izq >= nav.scrollLeft + 8 && der <= nav.scrollLeft + nav.clientWidth - 8) return;   // ya se ve: no tocar nada
+    nav.scrollLeft = izq - (nav.clientWidth - a.offsetWidth) / 2;                          // ajuste directo, sin animación
+  }
+
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (!e.isIntersecting) return;
+      const a = map.get(e.target.id); if (!a) return;
+      links.forEach(l => l.classList.toggle("on", l === a));
+      mostrar(a);
+    });
+  }, { rootMargin: "-45% 0px -50% 0px" });
+  map.forEach((a, id) => { const sec = document.getElementById(id); if (sec) io.observe(sec); });
+})();
+
+/* ====================== SIMULADOR ====================== */
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const K = reduce ? 2 : 1;                                   // factor de velocidad
+  const TOTAL = 5, X_OUT = 438, X_IN = 354, Y_ENTRY = 285, Y_EXIT = 185, Y_PARK = 62, X_SPAWN = 540;
+  const slotCx = i => 40 + i * 58;
+  const COLORS = ["#e5484d", "#3b82f6", "#f5a524", "#22c55e", "#a855f7", "#e5e7eb", "#14b8a6", "#f97316"];
+  const READY = "Elige una acción: <b>Llega un auto</b>, <b>Sale un auto</b> o <b>Un auto se arrepiente</b>.";
+
+  let libres = 3, busy = false, nCar = 0;
+  const slots = Array(TOTAL).fill(null);
+  const cars = new Set();
+  const beams = { in: false, out: false };
+
+  const wait = ms => new Promise(r => setTimeout(r, ms / K));
+  const rawWait = ms => new Promise(r => setTimeout(r, ms));
+  const easeIO = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const easeOut = t => 1 - (1 - t) * (1 - t);
+  const norm = a => ((a + 180) % 360 + 360) % 360 - 180;
+  const angDiff = (a, b) => ((b - a + 540) % 360) - 180;
+
+  function tween(ms, fn, ease = easeIO) {
+    return new Promise(res => {
+      ms = Math.max(1, ms / K);
+      const t0 = performance.now();
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / ms);
+        fn(ease(p));
+        p < 1 ? requestAnimationFrame(step) : res();
+      })(t0);
+    });
+  }
+  function roundedPath(P, r) {
+    let d = `M${P[0][0]} ${P[0][1]}`;
+    for (let i = 1; i < P.length - 1; i++) {
+      const [x0, y0] = P[i - 1], [x1, y1] = P[i], [x2, y2] = P[i + 1];
+      const l1 = Math.hypot(x1 - x0, y1 - y0), l2 = Math.hypot(x2 - x1, y2 - y1), rr = Math.min(r, l1 / 2, l2 / 2);
+      d += ` L${x1 + (x0 - x1) / l1 * rr} ${y1 + (y0 - y1) / l1 * rr} Q${x1} ${y1} ${x1 + (x2 - x1) / l2 * rr} ${y1 + (y2 - y1) / l2 * rr}`;
+    }
+    return d + ` L${P[P.length - 1][0]} ${P[P.length - 1][1]}`;
+  }
+
+  /* ----- autos ----- */
+  function makeCar(x, y, angle, parked = false) {
+    const color = COLORS[nCar++ % COLORS.length];
+    const g = document.createElementNS(NS, "g"); g.setAttribute("class", "car");
+    g.innerHTML = `<polygon points="24,-8 70,-22 70,22 24,8" fill="url(#hl)"/>
+      <rect x="-23" y="-12" width="46" height="24" rx="7" fill="${color}"/>
+      <rect x="-10" y="-9" width="18" height="18" rx="4" fill="#fff" opacity=".2"/>
+      <path d="M8,-9 L16,-7 L16,7 L8,9 Z" fill="#a9dcff" opacity=".9"/>
+      <path d="M-10,-8 L-17,-6 L-17,6 L-10,8 Z" fill="#7fb4dd" opacity=".75"/>
+      <rect x="20" y="-10" width="3.5" height="5" rx="1.5" fill="#fff6c2"/><rect x="20" y="5" width="3.5" height="5" rx="1.5" fill="#fff6c2"/>
+      <rect x="-24" y="-10" width="3" height="5" rx="1" fill="#ff3b3b"/><rect x="-24" y="5" width="3" height="5" rx="1" fill="#ff3b3b"/>`;
+    $("cars").appendChild(g);
+    const c = { g, x, y, angle, parked, slot: null };
+    cars.add(c); place(c); return c;
+  }
+  function place(c) { c.g.setAttribute("transform", `translate(${c.x.toFixed(1)} ${c.y.toFixed(1)}) rotate(${c.angle.toFixed(1)})`); updateBeams(); }
+  function removeCar(c) { c.g.remove(); cars.delete(c); updateBeams(); }
+
+  async function turn(c, target, ms = 380) {
+    const d = angDiff(c.angle, target); if (Math.abs(d) < 1) return;
+    const a0 = c.angle;
+    await tween(ms, e => { c.angle = a0 + d * e; place(c); });
+    c.angle = norm(a0 + d); place(c);
+  }
+  async function driveTo(c, pts, o = {}) {
+    const speed = o.speed || 0.15, ease = o.ease || easeIO, r = o.radius ?? 34;
+    const P = [[c.x, c.y]];
+    pts.forEach(p => { const l = P[P.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > .5) P.push(p); });
+    if (P.length < 2) return;
+    if (!o.reverse) await turn(c, Math.atan2(P[1][1] - P[0][1], P[1][0] - P[0][0]) * 180 / Math.PI);
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", roundedPath(P, r)); path.setAttribute("fill", "none"); $("tmp").appendChild(path);
+    const len = path.getTotalLength();
+    await tween(len / speed, e => {
+      const s = len * e, p = path.getPointAtLength(s); c.x = p.x; c.y = p.y;
+      if (!o.reverse) {
+        const a = path.getPointAtLength(Math.max(0, s - 2)), b = path.getPointAtLength(Math.min(len, s + 2));
+        if (Math.hypot(b.x - a.x, b.y - a.y) > .1) c.angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      }
+      place(c);
+    }, ease);
+    path.remove();
+  }
+
+  /* ----- elementos visuales ----- */
+  function updateBeams() {
+    let o = false, i = false;
+    cars.forEach(c => {
+      if (c.y > 140 && c.y < 330) { if (Math.abs(c.x - X_OUT) < 26) o = true; if (Math.abs(c.x - X_IN) < 26) i = true; }
+    });
+    if (o !== beams.out) { beams.out = o; $("beamOut").classList.toggle("on", o); $("ledOut").classList.toggle("on", o); $("stOut").textContent = o ? "detecta" : "libre"; }
+    if (i !== beams.in) { beams.in = i; $("beamIn").classList.toggle("on", i); $("ledIn").classList.toggle("on", i); $("stIn").textContent = i ? "detecta" : "libre"; }
+  }
+  function setBarrier(open) { $("arm").classList.toggle("open", open); $("stBar").textContent = open ? "abierta" : "cerrada"; }
+  function setLamp(color) {
+    $("lampR").setAttribute("class", "lamp r" + (color === "red" ? " on" : ""));
+    $("lampG").setAttribute("class", "lamp g" + (color === "green" ? " on" : ""));
+    $("stLamp").textContent = color === "red" ? "rojo" : "verde";
+  }
+  function showSign(bump) {
+    const n = $("signn");
+    if (libres === 0) { n.textContent = "LLENO"; n.setAttribute("class", "signn full"); }
+    else { n.textContent = libres; n.setAttribute("class", "signn free"); }
+    if (bump) { n.classList.remove("bump"); void n.getBBox(); n.classList.add("bump"); }
+  }
+  function setLibres(n) { libres = n; showSign(true); setLamp(n === 0 ? "red" : "green"); }
+  function say(step, total, html) {
+    $("simStep").textContent = step ? `Paso ${step} de ${total}` : "";
+    $("simText").innerHTML = html;
+  }
+  function buildSlots() {
+    const g = $("slots"); g.innerHTML = "";
+    for (let i = 0; i < TOTAL; i++) {
+      const cx = slotCx(i), x = cx - 26, el = document.createElementNS(NS, "g");
+      el.innerHTML = `<rect id="sl${i}" class="slotbg free" x="${x}" y="14" width="52" height="96" rx="3"/>
+        <path d="M${x} 110 V14 H${x + 52} V110" fill="none" stroke="#f1f1f1" stroke-width="3" stroke-linejoin="round" opacity=".9"/>
+        <text class="slotlbl" x="${cx}" y="30" text-anchor="middle">P${i + 1}</text>`;
+      g.appendChild(el);
+    }
+  }
+  function tint() { for (let i = 0; i < TOTAL; i++) $("sl" + i).setAttribute("class", "slotbg " + (slots[i] && slots[i].parked ? "busy" : "free")); }
+  const lastFree = () => { for (let i = TOTAL - 1; i >= 0; i--) if (!slots[i]) return i; return -1; };
+  const lastOcc = () => { for (let i = TOTAL - 1; i >= 0; i--) if (slots[i]) return i; return -1; };
+  function lock(b) { busy = b; ["bIn", "bOut", "bCancel", "bReset"].forEach(id => $(id).disabled = b); }
+
+  /* ----- secuencias didácticas ----- */
+  async function acercarse() {
+    const car = makeCar(X_SPAWN, Y_ENTRY, 180);
+    say(0, 0, "🚗 Un auto se acerca a la entrada…");
+    await driveTo(car, [[X_OUT, Y_ENTRY]], { speed: .13, ease: easeOut });
+    return car;
+  }
+  async function irse(car) { await driveTo(car, [[X_SPAWN, Y_ENTRY]], { speed: .13 }); removeCar(car); }
+
+  async function entrar() {
+    if (busy) return; lock(true);
+    const car = await acercarse();
+    if (libres === 0) {
+      say(1, 2, "👀 El sensor de <b>afuera</b> ve el auto, pero el parqueo está <b>lleno</b>. El semáforo está en <b>rojo</b>.");
+      await wait(3000);
+      say(2, 2, "⛔ <b>La barrera no se abre.</b> El auto no puede entrar y se retira. Nadie pierde tiempo buscando lugar adentro.");
+      await wait(2200); await irse(car); say(0, 0, READY); lock(false); return;
+    }
+    say(1, 5, "👀 El sensor de <b>afuera</b> (el primer “ojo”) ve un auto. El Arduino pregunta: ¿hay plazas libres?");
+    await wait(2600);
+    say(2, 5, "✅ ¡Sí hay lugar! El semáforo sigue en <b>verde</b> y la <b>barrera se levanta</b>.");
+    setBarrier(true); await wait(2000);
+    say(3, 5, "🚗 El auto avanza y pasa frente al sensor de <b>adentro</b>, el segundo “ojo”. Eso <b>confirma que de verdad entró</b>.");
+    await driveTo(car, [[X_IN, Y_ENTRY]], { speed: .13 });
+    await wait(1800);
+    await driveTo(car, [[X_IN - 50, Y_ENTRY]], { speed: .13 });
+    say(4, 5, "⏳ El auto terminó de pasar. Recién ahora el Arduino <b>resta una plaza</b> libre.");
+    setLibres(libres - 1); await wait(2200);
+    say(5, 5, "🔒 La barrera <b>baja</b> y el letrero muestra las plazas libres actualizadas.");
+    setBarrier(false);
+    const i = lastFree(), cx = slotCx(i); slots[i] = car; car.slot = i;
+    await driveTo(car, [[cx, Y_ENTRY], [cx, Y_PARK]], { speed: .17 });
+    car.parked = true; tint(); await wait(1400);
+    say(0, 0, READY); lock(false);
+  }
+
+  async function salir() {
+    if (busy) return;
+    const i = lastOcc();
+    if (i < 0) { say(0, 0, "Todavía no hay autos adentro. Prueba primero con <b>Llega un auto</b>."); return; }
+    lock(true);
+    const car = slots[i], cx = slotCx(i); slots[i] = null; car.parked = false; tint();
+    say(1, 5, "🅿️ Un auto quiere <b>salir</b>. Sale de su plaza y se acerca al sensor de <b>adentro</b>.");
+    await driveTo(car, [[cx, Y_EXIT]], { reverse: true, speed: .17 });
+    await turn(car, 0);
+    await driveTo(car, [[X_IN, Y_EXIT]], { speed: .15 });
+    say(2, 5, "👀 El sensor de <b>adentro</b> ve el auto. El Arduino revisa que haya autos dentro y <b>abre la barrera</b>.");
+    setLamp("green"); setBarrier(true); await wait(2400);
+    say(3, 5, "🚗 El auto cruza y pasa frente al sensor de <b>afuera</b>: esa es la <b>confirmación</b> de que salió.");
+    await driveTo(car, [[X_OUT, Y_EXIT]], { speed: .13 });
+    await wait(1800);
+    await driveTo(car, [[X_OUT + 52, Y_EXIT]], { speed: .13 });
+    say(4, 5, "⏳ Terminó de pasar. Ahora sí el Arduino <b>suma una plaza</b> libre.");
+    setLibres(libres + 1); await wait(2200);
+    say(5, 5, "🔒 La barrera <b>baja</b> y el auto se va. ¡Una plaza más disponible!");
+    setBarrier(false);
+    await driveTo(car, [[X_SPAWN, Y_EXIT]], { speed: .2 }); removeCar(car);
+    await wait(800); say(0, 0, READY); lock(false);
+  }
+
+  async function arrepentirse() {
+    if (busy) return;
+    if (libres === 0) { return entrar(); }
+    lock(true);
+    const car = await acercarse();
+    say(1, 3, "👀 El sensor de <b>afuera</b> ve un auto y el Arduino <b>abre la barrera</b>…");
+    setBarrier(true); await wait(2200);
+    for (let s = 5; s >= 1; s--) {
+      say(2, 3, `⏳ Pero el auto <b>no avanza</b>. El Arduino espera la confirmación del segundo sensor… <b>${s}</b>`);
+      await rawWait(1000 / (reduce ? 1.6 : 1));
+    }
+    say(3, 3, "🔒 Pasaron 5 segundos sin confirmación: la barrera <b>se cierra</b> y el contador <b>no cambia</b>. Así no se cuentan autos que nunca entraron.");
+    setBarrier(false); await wait(2800);
+    await irse(car); say(0, 0, READY); lock(false);
+  }
+
+  function reiniciar() {
+    cars.forEach(c => c.g.remove()); cars.clear(); slots.fill(null); nCar = 0;
+    beams.in = beams.out = true; updateBeams();
+    setBarrier(false); libres = 3;
+    for (const i of [3, 4]) { const c = makeCar(slotCx(i), Y_PARK, -90, true); c.slot = i; slots[i] = c; }
+    tint(); showSign(false); setLamp("green"); say(0, 0, READY); lock(false);
+  }
+
+  buildSlots();
+  $("bIn").onclick = entrar; $("bOut").onclick = salir; $("bCancel").onclick = arrepentirse;
+  $("bReset").onclick = reiniciar;
+  reiniciar();
+})();
+</script>
+</body>
+</html>
